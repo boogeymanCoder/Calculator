@@ -12,6 +12,7 @@ import android.widget.TextView;
 
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
+import java.util.Arrays;
 
 
 public class MainActivity extends AppCompatActivity implements CompoundButton.OnCheckedChangeListener{
@@ -132,12 +133,117 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
     }
 
     public void percent(View view) {
-        String prevEx = expression;
-        expression += "/100";
-        equals(view);
+        if (expression.isEmpty()) return;
+//        String prevEx = expression;
+//        expression += "/100";
+//        equals(view);
+//
+//        expression = prevEx;
+//        expressionTextView.setText(expression);
 
-        expression = prevEx;
-        expressionTextView.setText(expression);
+        try{
+//            Step 1: get last number entered
+            String lastNumber = getLastNumber(expression);
+
+//            Step 2: Remove last number from expression
+            int lastNumberLength = lastNumber.length();
+            int expressionLength = expression.length();
+            int end = expressionLength - lastNumberLength;
+            String strippedExpression = expression.substring(0, end);
+
+//            Step 3: Get biggest solvable value by stripping expression from 0 - last character
+            Double bsv = null;
+            try {
+                bsv = biggestSolvableValue(strippedExpression);
+            } catch(Exception e) {
+                System.out.println("Inner percent error: " + e);
+
+                expression = String.valueOf(eval(expression + "/100"));
+                solve();
+                expression = answerTextView.getText().toString();
+                expressionTextView.setText(expression);
+                return;
+            }
+
+//            Step 4: (bsv / 100) * lastNumberValue
+            Double lastNumberValue = Double.parseDouble(lastNumber);
+            Double percentileValue = (bsv / 100) * lastNumberValue;
+
+//            Step 5: replace last number with percentile value
+            expression = strippedExpression + toWhole(percentileValue);
+            solve();
+            expressionTextView.setText(expression);
+
+            System.out.println("last number: " + lastNumber);
+            System.out.println("stripped expression: " + strippedExpression);
+            System.out.println("bsv: " + bsv);
+
+        } catch(Exception e) {
+            System.out.println("Percent error: " + e);
+            return;
+        }
+    }
+
+//  Gets biggest solvable value
+    public Double biggestSolvableValue(String  exp) throws Exception{
+        Double lastSolved = null;
+
+        for(int i = 1; i < exp.length(); i++) {
+            String strip = exp.substring(0, i);
+            System.out.println("strip: " + strip);
+            try {
+                lastSolved = eval(strip);
+            } catch (Exception e) {
+                System.out.println("Cannot solve: " + strip);
+            }
+        }
+
+        if (lastSolved == null) throw new Exception("Cannot get biggest solvable value");
+
+        return lastSolved;
+    }
+
+//  Gets last number entered to the expression
+    public String getLastNumber(String exp) throws Exception{
+        Double lastNumber = null;
+        int operatorIndex = 0;
+        for(int i = exp.length() - 1; i >= 0; i--) {
+            if(exp.charAt(i) == '.') {
+                continue;
+            }
+            try{
+                lastNumber = Double.parseDouble(exp.substring(i));
+            } catch (Exception e) {
+                System.out.println("Encountered none number value");
+            }
+        }
+        if(lastNumber == null) throw new Exception("no last number");
+//  Convert to int if whole
+        return toWhole(lastNumber);
+    }
+
+//    Returns true if character is operator
+    public boolean isOperator(char ch) {
+        char[] operators = {'+', '-', '*', '/'};
+
+        for (char operator: operators) {
+            if (ch == operator) return true;
+        }
+
+        return false;
+    }
+
+//    Converts double to whole number string if possible
+    public String toWhole(Double val) {
+        if(val % 1 == 0){
+            try {
+                int intLastNumber = Integer.parseInt(String.valueOf(Math.round(val)));
+                return String.valueOf(intLastNumber);
+            } catch (Exception e) {
+                System.out.println("Error: Cannot parse value to int, value:" + val);
+            }
+        }
+        return String.valueOf(val);
     }
 
     public void erase(View view) {
